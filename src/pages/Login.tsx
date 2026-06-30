@@ -25,7 +25,18 @@ export default function Login() {
       return
     }
 
-    navigate("/admin", { replace: true })
+    // Fetch user profile to determine role
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("role")
+      .single()
+
+    // Redirect based on role
+    if (profile?.role === "admin") {
+      navigate("/admin", { replace: true })
+    } else {
+      navigate("/account", { replace: true })
+    }
   }
 
   return (
