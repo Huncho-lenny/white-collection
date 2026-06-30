@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "db:fix-rls": "node scripts/apply-bookings-rls.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.109.0",
@@ -21,6 +22,7 @@
     "@types/react": "^18.3.1",
     "@types/react-dom": "^18.3.1",
     "@vitejs/plugin-react": "^4.7.0",
+    "pg": "^8.22.0",
     "tailwindcss": "^4.1.12",
     "typescript": "^5.5.0",
     "vite": "^6.3.5"

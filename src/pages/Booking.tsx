@@ -58,10 +58,15 @@ export default function Booking() {
     setForm((f) => ({ ...f, [field]: value }))
 
   const handleSubmit = async () => {
+    if (!dbProperty?.id) {
+      setSubmitError("Property details are still loading. Please wait a moment and try again.")
+      return
+    }
+
     setSubmitting(true)
     setSubmitError(null)
     const { error } = await supabase.from("bookings").insert({
-      property_id:      dbProperty?.id ?? null,
+      property_id:      dbProperty.id,
       guest_name:       `${form.firstName} ${form.lastName}`.trim(),
       guest_email:      form.email,
       guest_phone:      form.phone,
@@ -158,7 +163,7 @@ export default function Booking() {
 
                 <button
                   onClick={handleSubmit}
-                  disabled={!form.firstName || !form.phone || !form.checkIn || !form.checkOut || submitting}
+                  disabled={!dbProperty?.id || !form.firstName || !form.phone || !form.checkIn || !form.checkOut || submitting}
                   className="mt-6 text-white font-semibold px-8 py-3.5 rounded-2xl inline-flex items-center gap-2 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                   style={{ backgroundColor: GOLD }}
                 >
