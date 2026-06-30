@@ -50,14 +50,6 @@ export function Nav({ scrolled }: { scrolled: boolean }) {
               {label}
             </Link>
           ))}
-          <Link
-            to="/admin"
-            className={`text-sm font-medium transition-colors ${
-              transparent ? "text-white/50 hover:text-white/80" : "text-muted-foreground hover:text-foreground"
-            }`}
-          >
-            Admin
-          </Link>
           <GoldBtn small onClick={() => navigate("/booking")}>
             Book Now
           </GoldBtn>
@@ -73,7 +65,7 @@ export function Nav({ scrolled }: { scrolled: boolean }) {
 
       {mobileOpen && (
         <div className="md:hidden bg-white border-t border-border px-6 py-5 space-y-3">
-          {[...NAV_LINKS, ["Admin", "/admin"]].map(([label, href]) => (
+          {NAV_LINKS.map(([label, href]) => (
             <Link
               key={href}
               to={href}
