@@ -1,16 +1,23 @@
-import { useMemo, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { useNavigate, useSearchParams } from "react-router-dom"
-import { ArrowRight, CheckCircle, ChevronRight, MapPin, MessageCircle } from "lucide-react"
-import { GOLD, GOLD_DARK, PROPERTIES } from "../data/properties"
+import { ArrowRight, CheckCircle, ChevronRight, Loader2, MapPin, MessageCircle } from "lucide-react"
+import { GOLD, PROPERTIES } from "../data/properties"
 import { GoldBtn } from "../components/ui-elements"
+import { supabase } from "../lib/supabase"
+import type { DbProperty } from "../lib/supabase"
 
 export default function Booking() {
   const [searchParams] = useSearchParams()
   const navigate = useNavigate()
   const propertySlug = searchParams.get("property")
-  const p = PROPERTIES.find((x) => x.slug === propertySlug) ?? PROPERTIES[0]
 
+  // Static fallback for display while DB loads
+  const staticP = PROPERTIES.find((x) => x.slug === propertySlug) ?? PROPERTIES[0]
+
+  const [dbProperty, setDbProperty] = useState<DbProperty | null>(null)
   const [step, setStep] = useState(1)
+  const [submitting, setSubmitting] = useState(false)
+  const [submitError, setSubmitError] = useState<string | null>(null)
   const [form, setForm] = useState({
     firstName: "",
     lastName: "",
@@ -22,15 +29,56 @@ export default function Booking() {
     notes: "",
   })
 
+  useEffect(() => {
+    const slug = propertySlug ?? staticP.slug
+    supabase
+      .from("properties")
+      .select("*")
+      .eq("slug", slug)
+      .single()
+      .then(({ data }) => { if (data) setDbProperty(data) })
+  }, [propertySlug, staticP.slug])
+
+  // Use DB values when available, fall back to static
+  const price   = dbProperty?.price_per_night ?? staticP.price
+  const maxGuests = dbProperty?.max_guests ?? staticP.guests
+  const name    = dbProperty?.title ?? staticP.name
+  const image   = dbProperty?.image_urls?.[0] ?? staticP.image
+  const location = dbProperty?.location ?? staticP.location
+
   const nights = useMemo(() => {
     if (!form.checkIn || !form.checkOut) return 0
     const diff = (new Date(form.checkOut).getTime() - new Date(form.checkIn).getTime()) / 86400000
     return diff > 0 ? Math.round(diff) : 0
   }, [form.checkIn, form.checkOut])
 
-  const total = nights * p.price
+  const total = nights * price
 
-  const update = (field: string, value: string | number) => setForm((f) => ({ ...f, [field]: value }))
+  const update = (field: string, value: string | number) =>
+    setForm((f) => ({ ...f, [field]: value }))
+
+  const handleSubmit = async () => {
+    setSubmitting(true)
+    setSubmitError(null)
+    const { error } = await supabase.from("bookings").insert({
+      property_id:      dbProperty?.id ?? null,
+      guest_name:       `${form.firstName} ${form.lastName}`.trim(),
+      guest_email:      form.email,
+      guest_phone:      form.phone,
+      check_in_date:    form.checkIn,
+      check_out_date:   form.checkOut,
+      special_requests: form.notes || null,
+      status:           "pending",
+      total_price:      total,
+    })
+    if (error) {
+      setSubmitError(error.message)
+      setSubmitting(false)
+      return
+    }
+    setStep(2)
+    setSubmitting(false)
+  }
 
   return (
     <div className="pt-24 pb-24 min-h-screen page-in">
@@ -39,12 +87,12 @@ export default function Booking() {
           <p className="text-xs font-semibold tracking-[0.3em] uppercase mb-3" style={{ color: GOLD }}>
             Booking Request
           </p>
-          <h1 className="font-display text-3xl md:text-4xl font-semibold text-foreground">Reserve {p.name}</h1>
+          <h1 className="font-display text-3xl md:text-4xl font-semibold text-foreground">Reserve {name}</h1>
         </div>
 
         {/* Step indicators */}
         <div className="flex items-center gap-2 mb-10">
-          {["Your Details", "Review & Send"].map((label, i) => {
+          {["Your Details", "Confirmed"].map((label, i) => {
             const s = i + 1
             const done = s < step
             const active = s === step
@@ -84,10 +132,8 @@ export default function Booking() {
                       onChange={(e) => update("guests", Number(e.target.value))}
                       className="w-full border border-border rounded-2xl px-4 py-3 text-sm text-foreground bg-background outline-none focus:border-[#C9A55A] transition-colors"
                     >
-                      {Array.from({ length: p.guests }, (_, i) => i + 1).map((n) => (
-                        <option key={n} value={n}>
-                          {n} Guest{n > 1 ? "s" : ""}
-                        </option>
+                      {Array.from({ length: maxGuests }, (_, i) => i + 1).map((n) => (
+                        <option key={n} value={n}>{n} Guest{n > 1 ? "s" : ""}</option>
                       ))}
                     </select>
                   </div>
@@ -102,13 +148,21 @@ export default function Booking() {
                     />
                   </div>
                 </div>
+
+                {submitError && (
+                  <p className="mt-4 text-sm text-red-600 bg-red-50 border border-red-200 rounded-xl px-4 py-3">
+                    {submitError}
+                  </p>
+                )}
+
                 <button
-                  onClick={() => setStep(2)}
-                  disabled={!form.firstName || !form.phone || !form.checkIn || !form.checkOut}
+                  onClick={handleSubmit}
+                  disabled={!form.firstName || !form.phone || !form.checkIn || !form.checkOut || submitting}
                   className="mt-6 text-white font-semibold px-8 py-3.5 rounded-2xl inline-flex items-center gap-2 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                   style={{ backgroundColor: GOLD }}
                 >
-                  Review Booking <ArrowRight size={15} />
+                  {submitting ? <Loader2 size={15} className="animate-spin" /> : <ArrowRight size={15} />}
+                  {submitting ? "Sending…" : "Send Request"}
                 </button>
               </div>
             )}
@@ -120,7 +174,7 @@ export default function Booking() {
                 </div>
                 <h2 className="font-display text-3xl font-semibold text-foreground mb-3">Request Sent!</h2>
                 <p className="text-muted-foreground text-sm mb-9 max-w-md mx-auto leading-relaxed">
-                  Thanks, {form.firstName || "there"}. We've received your request for {p.name}
+                  Thanks, {form.firstName || "there"}. We've received your request for {name}
                   {nights > 0 ? ` (${nights} night${nights > 1 ? "s" : ""})` : ""}. We'll confirm
                   availability and payment details directly on WhatsApp or via the phone number you
                   provided, usually within a few hours.
@@ -145,18 +199,19 @@ export default function Booking() {
           <div>
             <div className="bg-card border border-border rounded-3xl overflow-hidden shadow-xl sticky top-24">
               <div className="bg-muted" style={{ aspectRatio: "16/9" }}>
-                <img src={p.image} alt={p.name} className="w-full h-full object-cover" />
+                <img src={image} alt={name} className="w-full h-full object-cover" />
               </div>
               <div className="p-6">
-                <h3 className="font-display font-semibold text-lg text-foreground">{p.name}</h3>
+                <h3 className="font-display font-semibold text-lg text-foreground">{name}</h3>
                 <p className="flex items-center gap-1 text-muted-foreground text-sm mt-1 mb-5">
-                  <MapPin size={12} />
-                  {p.location}
+                  <MapPin size={12} />{location}
                 </p>
                 <div className="space-y-2.5 text-sm">
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">
-                      {nights > 0 ? `${nights} night${nights > 1 ? "s" : ""} × KSh ${p.price.toLocaleString()}` : `KSh ${p.price.toLocaleString()} / night`}
+                      {nights > 0
+                        ? `${nights} night${nights > 1 ? "s" : ""} × KSh ${price.toLocaleString()}`
+                        : `KSh ${price.toLocaleString()} / night`}
                     </span>
                     <span className="text-foreground font-semibold">KSh {total.toLocaleString()}</span>
                   </div>
@@ -182,11 +237,7 @@ export default function Booking() {
 }
 
 function Field({
-  label,
-  placeholder,
-  type = "text",
-  value,
-  onChange,
+  label, placeholder, type = "text", value, onChange,
 }: {
   label: string
   placeholder?: string

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react"
-import { Routes, Route, useLocation } from "react-router-dom"
+import { Routes, Route, useLocation, Navigate } from "react-router-dom"
 import { AnimationStyles } from "./components/AnimationStyles"
 import { Nav } from "./components/Nav"
 import { Footer } from "./components/Footer"
@@ -9,6 +9,8 @@ import PropertyDetail from "./pages/PropertyDetail"
 import Booking from "./pages/Booking"
 import Contact from "./pages/Contact"
 import Admin from "./pages/Admin"
+import Login from "./pages/Login"
+import { AuthProvider, useAuth } from "./lib/auth"
 
 function ScrollToTop() {
   const { pathname } = useLocation()
@@ -18,7 +20,15 @@ function ScrollToTop() {
   return null
 }
 
-export default function App() {
+// Redirects to /login if not authenticated
+function ProtectedRoute({ children }: { children: React.ReactNode }) {
+  const { session, loading } = useAuth()
+  if (loading) return null // wait for Supabase session restore
+  if (!session) return <Navigate to="/login" replace />
+  return <>{children}</>
+}
+
+function AppInner() {
   const [scrolled, setScrolled] = useState(false)
   const location = useLocation()
 
@@ -28,11 +38,23 @@ export default function App() {
     return () => window.removeEventListener("scroll", h)
   }, [])
 
-  if (location.pathname === "/admin") {
+  const isFullscreen = location.pathname === "/admin" || location.pathname === "/login"
+
+  if (isFullscreen) {
     return (
       <>
         <AnimationStyles />
-        <Admin />
+        <Routes>
+          <Route path="/login" element={<Login />} />
+          <Route
+            path="/admin"
+            element={
+              <ProtectedRoute>
+                <Admin />
+              </ProtectedRoute>
+            }
+          />
+        </Routes>
       </>
     )
   }
@@ -49,9 +71,19 @@ export default function App() {
           <Route path="/properties/:slug" element={<PropertyDetail />} />
           <Route path="/booking" element={<Booking />} />
           <Route path="/contact" element={<Contact />} />
+          {/* Catch-all fallback */}
+          <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
         <Footer />
       </div>
     </>
+  )
+}
+
+export default function App() {
+  return (
+    <AuthProvider>
+      <AppInner />
+    </AuthProvider>
   )
 }
