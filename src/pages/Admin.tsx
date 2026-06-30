@@ -3,7 +3,7 @@ import { Link } from "react-router-dom"
 import {
   LayoutDashboard, BookOpen, Building, Settings, ArrowRight, LogOut,
   Menu, MapPin, Edit, Inbox, Loader2, CheckCircle, XCircle, Clock,
-  RefreshCw, Star,
+  RefreshCw, Star, Plus, Trash2, X,
 } from "lucide-react"
 import { supabase } from "../lib/supabase"
 import { useAuth } from "../lib/auth"
@@ -49,6 +49,23 @@ export default function Admin() {
   const [loadingData, setLoadingData] = useState(true)
   const [updatingId,  setUpdatingId]  = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [showPropertyModal, setShowPropertyModal] = useState(false)
+  const [editingProperty, setEditingProperty] = useState<DbProperty | null>(null)
+  const [propertyForm, setPropertyForm] = useState({
+    title: "",
+    location: "",
+    price_per_night: 0,
+    max_guests: 1,
+    bedrooms: 1,
+    bathrooms: 1,
+    rating: 0,
+    review_count: 0,
+    image_urls: "",
+    tag: "",
+    amenities: "",
+    description: "",
+    status: "active",
+  })
 
   const fetchData = useCallback(async () => {
     setLoadingData(true)
@@ -74,6 +91,107 @@ export default function Admin() {
     setUpdatingId(null)
   }
 
+  const openAddProperty = () => {
+    setEditingProperty(null)
+    setPropertyForm({
+      title: "",
+      location: "",
+      price_per_night: 0,
+      max_guests: 1,
+      bedrooms: 1,
+      bathrooms: 1,
+      rating: 0,
+      review_count: 0,
+      image_urls: "",
+      tag: "",
+      amenities: "",
+      description: "",
+      status: "active",
+    })
+    setShowPropertyModal(true)
+  }
+
+  const openEditProperty = (property: DbProperty) => {
+    setEditingProperty(property)
+    setPropertyForm({
+      title: property.title,
+      location: property.location,
+      price_per_night: property.price_per_night,
+      max_guests: property.max_guests,
+      bedrooms: property.bedrooms,
+      bathrooms: property.bathrooms,
+      rating: property.rating || 0,
+      review_count: property.review_count,
+      image_urls: property.image_urls?.join("\n") || "",
+      tag: property.tag || "",
+      amenities: property.amenities?.join("\n") || "",
+      description: property.description,
+      status: property.status,
+    })
+    setShowPropertyModal(true)
+  }
+
+  const handleSaveProperty = async () => {
+    try {
+      const imageUrlsArray = propertyForm.image_urls.split("\n").filter((url) => url.trim())
+      const amenitiesArray = propertyForm.amenities.split("\n").filter((a) => a.trim())
+
+      if (editingProperty) {
+        const { error: err } = await supabase
+          .from("properties")
+          .update({
+            title: propertyForm.title,
+            location: propertyForm.location,
+            price_per_night: propertyForm.price_per_night,
+            max_guests: propertyForm.max_guests,
+            bedrooms: propertyForm.bedrooms,
+            bathrooms: propertyForm.bathrooms,
+            rating: propertyForm.rating,
+            review_count: propertyForm.review_count,
+            image_urls: imageUrlsArray,
+            tag: propertyForm.tag,
+            amenities: amenitiesArray,
+            description: propertyForm.description,
+            status: propertyForm.status,
+          })
+          .eq("id", editingProperty.id)
+
+        if (err) throw err
+      } else {
+        const { error: err } = await supabase.from("properties").insert({
+          title: propertyForm.title,
+          location: propertyForm.location,
+          price_per_night: propertyForm.price_per_night,
+          max_guests: propertyForm.max_guests,
+          bedrooms: propertyForm.bedrooms,
+          bathrooms: propertyForm.bathrooms,
+          rating: propertyForm.rating,
+          review_count: propertyForm.review_count,
+          image_urls: imageUrlsArray,
+          tag: propertyForm.tag,
+          amenities: amenitiesArray,
+          description: propertyForm.description,
+          status: propertyForm.status,
+        })
+
+        if (err) throw err
+      }
+
+      setShowPropertyModal(false)
+      fetchData()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to save property")
+    }
+  }
+
+  const handleDeleteProperty = async (id: string) => {
+    if (!confirm("Are you sure you want to delete this property?")) return
+
+    const { error: err } = await supabase.from("properties").delete().eq("id", id)
+    if (err) setError(err.message)
+    else fetchData()
+  }
+
   const pendingCount   = bookings.filter((b) => b.status === "pending").length
   const confirmedCount = bookings.filter((b) => b.status === "confirmed").length
 
@@ -86,7 +204,6 @@ export default function Admin() {
 
   return (
     <div className="flex h-screen overflow-hidden" style={{ backgroundColor: "#F0EDE8" }}>
-
       {/* Sidebar */}
       <aside
         className={`${collapsed ? "w-16" : "w-60"} transition-all duration-300 flex flex-col shrink-0`}
@@ -278,8 +395,10 @@ export default function Admin() {
 
           {/* Properties */}
           <div className="bg-white rounded-2xl border border-border shadow-sm overflow-hidden">
-            <div className="px-6 py-4 border-b border-border">
-              <h3 className="font-display font-semibold text-lg text-foreground">Property Portfolio</h3>
+            <div className="px-6 py-4 border-b border-border flex items-center justify-between">
+              <div>
+                <h3 className="font-display font-semibold text-lg text-foreground">Property Portfolio</h3>
+              </div>
             </div>
             {loadingData ? (
               <div className="flex items-center justify-center py-10 gap-3 text-muted-foreground">
@@ -309,17 +428,172 @@ export default function Admin() {
                       <span className="flex items-center gap-1.5 text-xs font-medium text-emerald-600 bg-emerald-50 border border-emerald-200 px-2.5 py-1 rounded-full">
                         <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />Active
                       </span>
-                      <button className="text-muted-foreground hover:text-[#C9A55A] transition-colors">
+                      <button
+                        onClick={() => openEditProperty(p)}
+                        className="text-muted-foreground hover:text-[#C9A55A] transition-colors"
+                      >
                         <Edit size={13} />
+                      </button>
+                      <button
+                        onClick={() => handleDeleteProperty(p.id)}
+                        className="text-muted-foreground hover:text-red-600 transition-colors"
+                      >
+                        <Trash2 size={13} />
                       </button>
                     </div>
                   </div>
                 ))}
               </div>
             )}
+
+            <button
+              onClick={openAddProperty}
+              className="w-full bg-white rounded-2xl border-2 border-dashed border-border hover:border-[#C9A55A] p-6 flex items-center justify-center gap-2 text-muted-foreground hover:text-[#C9A55A] transition-colors"
+            >
+              <Plus size={20} />
+              <span className="font-semibold">Add New Property</span>
+            </button>
           </div>
         </div>
       </div>
+
+      {/* Property Modal */}
+      {showPropertyModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-6">
+          <div className="bg-white rounded-3xl p-8 max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="font-display text-2xl font-semibold text-foreground">
+                {editingProperty ? "Edit Property" : "Add New Property"}
+              </h2>
+              <button onClick={() => setShowPropertyModal(false)} className="text-muted-foreground hover:text-foreground">
+                <X size={20} />
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <label className="text-sm font-semibold text-foreground block mb-2">Title</label>
+                <input
+                  type="text"
+                  value={propertyForm.title}
+                  onChange={(e) => setPropertyForm({ ...propertyForm, title: e.target.value })}
+                  className="w-full border border-border rounded-2xl px-4 py-3 text-sm text-foreground bg-background outline-none focus:border-[#C9A55A]"
+                />
+              </div>
+
+              <div>
+                <label className="text-sm font-semibold text-foreground block mb-2">Location</label>
+                <input
+                  type="text"
+                  value={propertyForm.location}
+                  onChange={(e) => setPropertyForm({ ...propertyForm, location: e.target.value })}
+                  className="w-full border border-border rounded-2xl px-4 py-3 text-sm text-foreground bg-background outline-none focus:border-[#C9A55A]"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="text-sm font-semibold text-foreground block mb-2">Price per Night (KSh)</label>
+                  <input
+                    type="number"
+                    value={propertyForm.price_per_night}
+                    onChange={(e) => setPropertyForm({ ...propertyForm, price_per_night: Number(e.target.value) })}
+                    className="w-full border border-border rounded-2xl px-4 py-3 text-sm text-foreground bg-background outline-none focus:border-[#C9A55A]"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-sm font-semibold text-foreground block mb-2">Max Guests</label>
+                  <input
+                    type="number"
+                    value={propertyForm.max_guests}
+                    onChange={(e) => setPropertyForm({ ...propertyForm, max_guests: Number(e.target.value) })}
+                    className="w-full border border-border rounded-2xl px-4 py-3 text-sm text-foreground bg-background outline-none focus:border-[#C9A55A]"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-sm font-semibold text-foreground block mb-2">Bedrooms</label>
+                  <input
+                    type="number"
+                    value={propertyForm.bedrooms}
+                    onChange={(e) => setPropertyForm({ ...propertyForm, bedrooms: Number(e.target.value) })}
+                    className="w-full border border-border rounded-2xl px-4 py-3 text-sm text-foreground bg-background outline-none focus:border-[#C9A55A]"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-sm font-semibold text-foreground block mb-2">Bathrooms</label>
+                  <input
+                    type="number"
+                    value={propertyForm.bathrooms}
+                    onChange={(e) => setPropertyForm({ ...propertyForm, bathrooms: Number(e.target.value) })}
+                    className="w-full border border-border rounded-2xl px-4 py-3 text-sm text-foreground bg-background outline-none focus:border-[#C9A55A]"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="text-sm font-semibold text-foreground block mb-2">Tag (e.g., Lake View, Sea View)</label>
+                <input
+                  type="text"
+                  value={propertyForm.tag}
+                  onChange={(e) => setPropertyForm({ ...propertyForm, tag: e.target.value })}
+                  className="w-full border border-border rounded-2xl px-4 py-3 text-sm text-foreground bg-background outline-none focus:border-[#C9A55A]"
+                />
+              </div>
+
+              <div>
+                <label className="text-sm font-semibold text-foreground block mb-2">Image URLs (one per line)</label>
+                <textarea
+                  rows={3}
+                  value={propertyForm.image_urls}
+                  onChange={(e) => setPropertyForm({ ...propertyForm, image_urls: e.target.value })}
+                  className="w-full border border-border rounded-2xl px-4 py-3 text-sm text-foreground bg-background outline-none focus:border-[#C9A55A] resize-none"
+                  placeholder="https://example.com/image1.jpg&#10;https://example.com/image2.jpg"
+                />
+              </div>
+
+              <div>
+                <label className="text-sm font-semibold text-foreground block mb-2">Amenities (one per line)</label>
+                <textarea
+                  rows={3}
+                  value={propertyForm.amenities}
+                  onChange={(e) => setPropertyForm({ ...propertyForm, amenities: e.target.value })}
+                  className="w-full border border-border rounded-2xl px-4 py-3 text-sm text-foreground bg-background outline-none focus:border-[#C9A55A] resize-none"
+                  placeholder="WiFi&#10;Pool&#10;Parking"
+                />
+              </div>
+
+              <div>
+                <label className="text-sm font-semibold text-foreground block mb-2">Description</label>
+                <textarea
+                  rows={4}
+                  value={propertyForm.description}
+                  onChange={(e) => setPropertyForm({ ...propertyForm, description: e.target.value })}
+                  className="w-full border border-border rounded-2xl px-4 py-3 text-sm text-foreground bg-background outline-none focus:border-[#C9A55A] resize-none"
+                />
+              </div>
+
+              <div className="flex gap-3 pt-4">
+                <button
+                  onClick={() => setShowPropertyModal(false)}
+                  className="flex-1 px-6 py-3 rounded-2xl border border-border text-foreground font-semibold hover:bg-secondary transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleSaveProperty}
+                  className="flex-1 px-6 py-3 rounded-2xl text-white font-semibold transition-colors"
+                  style={{ backgroundColor: GOLD }}
+                >
+                  {editingProperty ? "Update Property" : "Add Property"}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
