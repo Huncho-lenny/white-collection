@@ -67,6 +67,7 @@ export default function Booking() {
       guest_phone:      form.phone,
       check_in_date:    form.checkIn,
       check_out_date:   form.checkOut,
+      number_of_guests: form.guests,
       special_requests: form.notes || null,
       status:           "pending",
       total_price:      total,

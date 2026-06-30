@@ -39,6 +39,7 @@ export interface DbBooking {
   guest_phone: string
   check_in_date: string
   check_out_date: string
+  number_of_guests: number
   special_requests: string | null
   status: "pending" | "confirmed" | "declined"
   total_price: number
