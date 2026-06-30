@@ -3,6 +3,7 @@ import { Link, useLocation, useNavigate } from "react-router-dom"
 import { Menu, X } from "lucide-react"
 import { GoldBtn } from "./ui-elements"
 import { GOLD } from "../data/properties"
+import { useAuth } from "../lib/auth"
 
 const NAV_LINKS: [string, string][] = [
   ["Home", "/"],
@@ -14,6 +15,7 @@ export function Nav({ scrolled }: { scrolled: boolean }) {
   const [mobileOpen, setMobileOpen] = useState(false)
   const location = useLocation()
   const navigate = useNavigate()
+  const { user } = useAuth()
   const transparent = location.pathname === "/" && !scrolled
 
   return (
@@ -50,6 +52,25 @@ export function Nav({ scrolled }: { scrolled: boolean }) {
               {label}
             </Link>
           ))}
+          {user ? (
+            <Link
+              to="/account"
+              className={`text-sm font-medium transition-colors ${
+                transparent ? "text-white/85 hover:text-white" : "text-foreground hover:text-[#C9A55A]"
+              }`}
+            >
+              My Account
+            </Link>
+          ) : (
+            <Link
+              to="/login"
+              className={`text-sm font-medium transition-colors ${
+                transparent ? "text-white/85 hover:text-white" : "text-foreground hover:text-[#C9A55A]"
+              }`}
+            >
+              Login
+            </Link>
+          )}
           <GoldBtn small onClick={() => navigate("/booking")}>
             Book Now
           </GoldBtn>
@@ -75,6 +96,23 @@ export function Nav({ scrolled }: { scrolled: boolean }) {
               {label}
             </Link>
           ))}
+          {user ? (
+            <Link
+              to="/account"
+              onClick={() => setMobileOpen(false)}
+              className="block w-full text-left text-sm font-medium text-foreground hover:text-[#C9A55A] transition-colors py-1"
+            >
+              My Account
+            </Link>
+          ) : (
+            <Link
+              to="/login"
+              onClick={() => setMobileOpen(false)}
+              className="block w-full text-left text-sm font-medium text-foreground hover:text-[#C9A55A] transition-colors py-1"
+            >
+              Login
+            </Link>
+          )}
           <GoldBtn
             small
             onClick={() => {

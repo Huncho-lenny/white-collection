@@ -8,6 +8,7 @@ import Properties from "./pages/Properties"
 import PropertyDetail from "./pages/PropertyDetail"
 import Booking from "./pages/Booking"
 import Contact from "./pages/Contact"
+import Account from "./pages/Account"
 import Admin from "./pages/Admin"
 import Login from "./pages/Login"
 import { AuthProvider, useAuth } from "./lib/auth"
@@ -71,6 +72,7 @@ function AppInner() {
           <Route path="/properties/:slug" element={<PropertyDetail />} />
           <Route path="/booking" element={<Booking />} />
           <Route path="/contact" element={<Contact />} />
+          <Route path="/account" element={<Account />} />
           {/* Catch-all fallback */}
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
