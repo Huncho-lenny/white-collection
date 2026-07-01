@@ -1,4 +1,5 @@
-import { Mail, MapPin, MessageCircle, Phone } from "lucide-react"
+import { useState } from "react"
+import { Mail, MapPin, MessageCircle, Phone, Loader2, CheckCircle } from "lucide-react"
 import { useReveal } from "../hooks"
 import { GOLD, GOLD_DARK, CHARCOAL } from "../data/properties"
 
@@ -13,6 +14,27 @@ const CONTACT_ITEMS = [
 export default function Contact() {
   const leftReveal = useReveal()
   const rightReveal = useReveal()
+
+  const [form, setForm] = useState({ firstName: "", lastName: "", email: "", type: "Villa Enquiry", message: "" })
+  const [submitting, setSubmitting] = useState(false)
+  const [submitted, setSubmitted] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  const update = (field: string, value: string) => setForm((f) => ({ ...f, [field]: value }))
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!form.firstName || !form.email || !form.message) {
+      setError("Please fill in your name, email, and message.")
+      return
+    }
+    setSubmitting(true)
+    setError(null)
+    // No backend yet — simulate a short delay then show success
+    await new Promise((r) => setTimeout(r, 1000))
+    setSubmitting(false)
+    setSubmitted(true)
+  }
 
   return (
     <div className="pt-24 pb-24 page-in">
@@ -68,29 +90,56 @@ export default function Contact() {
             className={`${rightReveal.visible ? "rev-right" : "opacity-0"} bg-card border border-border rounded-3xl p-8 shadow-sm`}
           >
             <h2 className="font-display text-2xl font-semibold text-foreground mb-6">Send us a Message</h2>
-            <div className="space-y-4">
+
+            {submitted ? (
+              <div className="text-center py-10">
+                <div className="w-16 h-16 rounded-full bg-emerald-100 flex items-center justify-center mx-auto mb-4">
+                  <CheckCircle size={30} className="text-emerald-600" />
+                </div>
+                <p className="font-display text-xl font-semibold text-foreground mb-2">Message Sent!</p>
+                <p className="text-muted-foreground text-sm leading-relaxed">
+                  Thanks, {form.firstName}. We'll get back to you within a few hours.
+                </p>
+              </div>
+            ) : (
+            <form onSubmit={handleSubmit} className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
-                {["First Name", "Last Name"].map((l) => (
-                  <div key={l}>
-                    <label className="text-sm font-semibold text-foreground block mb-2">{l}</label>
-                    <input
-                      type="text"
-                      className="w-full border border-border rounded-2xl px-4 py-3 text-sm bg-background outline-none focus:border-[#C9A55A] transition-colors placeholder:text-muted-foreground"
-                    />
-                  </div>
-                ))}
+                <div>
+                  <label className="text-sm font-semibold text-foreground block mb-2">First Name</label>
+                  <input
+                    type="text"
+                    value={form.firstName}
+                    onChange={(e) => update("firstName", e.target.value)}
+                    className="w-full border border-border rounded-2xl px-4 py-3 text-sm bg-background outline-none focus:border-[#C9A55A] transition-colors placeholder:text-muted-foreground"
+                  />
+                </div>
+                <div>
+                  <label className="text-sm font-semibold text-foreground block mb-2">Last Name</label>
+                  <input
+                    type="text"
+                    value={form.lastName}
+                    onChange={(e) => update("lastName", e.target.value)}
+                    className="w-full border border-border rounded-2xl px-4 py-3 text-sm bg-background outline-none focus:border-[#C9A55A] transition-colors placeholder:text-muted-foreground"
+                  />
+                </div>
               </div>
               <div>
                 <label className="text-sm font-semibold text-foreground block mb-2">Email Address</label>
                 <input
                   type="email"
+                  value={form.email}
+                  onChange={(e) => update("email", e.target.value)}
                   placeholder="jane@example.com"
                   className="w-full border border-border rounded-2xl px-4 py-3 text-sm bg-background outline-none focus:border-[#C9A55A] transition-colors placeholder:text-muted-foreground"
                 />
               </div>
               <div>
                 <label className="text-sm font-semibold text-foreground block mb-2">Enquiry Type</label>
-                <select className="w-full border border-border rounded-2xl px-4 py-3 text-sm text-foreground bg-background outline-none focus:border-[#C9A55A] transition-colors">
+                <select
+                  value={form.type}
+                  onChange={(e) => update("type", e.target.value)}
+                  className="w-full border border-border rounded-2xl px-4 py-3 text-sm text-foreground bg-background outline-none focus:border-[#C9A55A] transition-colors"
+                >
                   {["Villa Enquiry", "Booking Assistance", "Special Occasion", "Other"].map((o) => (
                     <option key={o}>{o}</option>
                   ))}
@@ -100,19 +149,29 @@ export default function Contact() {
                 <label className="text-sm font-semibold text-foreground block mb-2">Message</label>
                 <textarea
                   rows={5}
+                  value={form.message}
+                  onChange={(e) => update("message", e.target.value)}
                   placeholder="Tell us about your ideal stay or any questions you have..."
                   className="w-full border border-border rounded-2xl px-4 py-3 text-sm bg-background outline-none focus:border-[#C9A55A] transition-colors resize-none placeholder:text-muted-foreground"
                 />
               </div>
+
+              {error && (
+                <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-xl px-4 py-3">{error}</p>
+              )}
+
               <button
-                className="w-full text-white font-semibold py-4 rounded-2xl transition-colors"
+                type="submit"
+                disabled={submitting}
+                className="w-full text-white font-semibold py-4 rounded-2xl transition-colors flex items-center justify-center gap-2 disabled:opacity-60"
                 style={{ backgroundColor: GOLD }}
-                onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = GOLD_DARK)}
+                onMouseEnter={(e) => !submitting && (e.currentTarget.style.backgroundColor = GOLD_DARK)}
                 onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = GOLD)}
               >
-                Send Message
+                {submitting ? <Loader2 size={16} className="animate-spin" /> : "Send Message"}
               </button>
-            </div>
+            </form>
+            )}
           </div>
         </div>
       </div>
