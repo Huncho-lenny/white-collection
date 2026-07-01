@@ -9,6 +9,9 @@ import { useReveal } from "../hooks"
 import { GOLD, GOLD_DARK, PROPERTIES } from "../data/properties"
 import { SectionHeading, StatCounter, GoldBtn } from "../components/ui-elements"
 import { PropertyCard } from "../components/PropertyCard"
+import { AboutUs } from "../components/AboutUs"
+import { HowItWorks } from "../components/HowItWorks"
+import { CancellationPolicy } from "../components/CancellationPolicy"
 
 type WhyCardProps = {
   item: { icon: React.ElementType; title: string; desc: string }
@@ -271,6 +274,10 @@ export default function Home() {
           </div>
         </div>
       </section>
+
+      <AboutUs />
+      <HowItWorks />
+      <CancellationPolicy />
 
       {/* CTA split canvas */}
       <section ref={ctaReveal.ref} className="grid grid-cols-1 lg:grid-cols-2 min-h-[480px]">
