@@ -13,6 +13,8 @@ import Admin from "./pages/Admin"
 import Login from "./pages/Login"
 import SignUp from "./pages/SignUp"
 import AuthCallback from "./pages/AuthCallback"
+import Privacy from "./pages/Privacy"
+import Terms from "./pages/Terms"
 import { AuthProvider, useAuth } from "./lib/auth"
 
 function ScrollToTop() {
@@ -86,6 +88,8 @@ function AppInner() {
             }
           />
           <Route path="/contact" element={<Contact />} />
+          <Route path="/privacy" element={<Privacy />} />
+          <Route path="/terms" element={<Terms />} />
           <Route
             path="/account"
             element={

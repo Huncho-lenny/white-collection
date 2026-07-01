@@ -133,7 +133,11 @@ export function Footer() {
 
         <div className="border-t border-white/8 pt-6 flex flex-col md:flex-row items-center justify-between gap-3 text-xs text-white/25">
           <p>© {new Date().getFullYear()} The White Collection. All rights reserved.</p>
-          <p>Kisumu · Mombasa</p>
+          <div className="flex items-center gap-4">
+            <Link to="/privacy" className="hover:text-white/50 transition-colors">Privacy Policy</Link>
+            <Link to="/terms" className="hover:text-white/50 transition-colors">Terms &amp; Conditions</Link>
+            <p>Kisumu · Mombasa</p>
+          </div>
         </div>
       </div>
     </footer>
