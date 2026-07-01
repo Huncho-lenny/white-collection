@@ -1,23 +1,31 @@
 import { useEffect, useMemo, useState } from "react"
 import { useNavigate, useSearchParams } from "react-router-dom"
-import { ArrowRight, CheckCircle, ChevronRight, Loader2, MapPin, MessageCircle } from "lucide-react"
+import {
+  ArrowRight, CheckCircle, ChevronRight, CreditCard,
+  Loader2, Lock, MapPin, MessageCircle,
+} from "lucide-react"
 import { GOLD, PROPERTIES } from "../data/properties"
 import { GoldBtn } from "../components/ui-elements"
 import { supabase } from "../lib/supabase"
+import { useAuth } from "../lib/auth"
 import type { DbProperty } from "../lib/supabase"
+
+const STEPS = ["Your Details", "Payment", "Confirmed"]
 
 export default function Booking() {
   const [searchParams] = useSearchParams()
   const navigate = useNavigate()
+  const { user, profile } = useAuth()
   const propertySlug = searchParams.get("property")
 
-  // Static fallback for display while DB loads
   const staticP = PROPERTIES.find((x) => x.slug === propertySlug) ?? PROPERTIES[0]
-
   const [dbProperty, setDbProperty] = useState<DbProperty | null>(null)
   const [step, setStep] = useState(1)
   const [submitting, setSubmitting] = useState(false)
+  const [paying, setPaying] = useState(false)
   const [submitError, setSubmitError] = useState<string | null>(null)
+  const [bookingId, setBookingId] = useState<string | null>(null)
+
   const [form, setForm] = useState({
     firstName: "",
     lastName: "",
@@ -29,21 +37,28 @@ export default function Booking() {
     notes: "",
   })
 
+  // Prefill from profile once loaded
+  useEffect(() => {
+    if (!profile && !user) return
+    const nameParts = (profile?.full_name ?? "").split(" ")
+    setForm((f) => ({
+      ...f,
+      firstName: nameParts[0] ?? f.firstName,
+      lastName: nameParts.slice(1).join(" ") ?? f.lastName,
+      email: user?.email ?? f.email,
+    }))
+  }, [profile, user])
+
   useEffect(() => {
     const slug = propertySlug ?? staticP.slug
-    supabase
-      .from("properties")
-      .select("*")
-      .eq("slug", slug)
-      .single()
+    supabase.from("properties").select("*").eq("slug", slug).single()
       .then(({ data }) => { if (data) setDbProperty(data) })
   }, [propertySlug, staticP.slug])
 
-  // Use DB values when available, fall back to static
-  const price   = dbProperty?.price_per_night ?? staticP.price
+  const price = dbProperty?.price_per_night ?? staticP.price
   const maxGuests = dbProperty?.max_guests ?? staticP.guests
-  const name    = dbProperty?.title ?? staticP.name
-  const image   = dbProperty?.image_urls?.[0] ?? staticP.image
+  const name = dbProperty?.title ?? staticP.name
+  const image = dbProperty?.image_urls?.[0] ?? staticP.image
   const location = dbProperty?.location ?? staticP.location
 
   const nights = useMemo(() => {
@@ -57,31 +72,44 @@ export default function Booking() {
   const update = (field: string, value: string | number) =>
     setForm((f) => ({ ...f, [field]: value }))
 
-  const handleSubmit = async () => {
-    // Use database property ID if available, otherwise use a mock ID for testing
-    const propertyId = dbProperty?.id || "00000000-0000-0000-0000-000000000000"
-
+  // Step 1 → insert booking as pending, move to payment
+  const handleSubmitDetails = async () => {
+    if (!dbProperty) { setSubmitError("Property not found. Please go back and try again."); return }
     setSubmitting(true)
     setSubmitError(null)
-    const { error } = await supabase.from("bookings").insert({
-      property_id:      propertyId,
-      guest_name:       `${form.firstName} ${form.lastName}`.trim(),
-      guest_email:      form.email,
-      guest_phone:      form.phone,
-      check_in_date:    form.checkIn,
-      check_out_date:   form.checkOut,
+    const { data, error } = await supabase.from("bookings").insert({
+      property_id: dbProperty.id,
+      user_id: user!.id,
+      guest_name: `${form.firstName} ${form.lastName}`.trim(),
+      guest_email: form.email,
+      guest_phone: form.phone,
+      check_in_date: form.checkIn,
+      check_out_date: form.checkOut,
       number_of_guests: form.guests,
       special_requests: form.notes || null,
-      status:           "pending",
-      total_price:      total,
-    })
-    if (error) {
-      setSubmitError(error.message)
-      setSubmitting(false)
-      return
-    }
+      status: "pending",
+      payment_status: "unpaid",
+      total_price: total,
+    }).select("id").single()
+    if (error) { setSubmitError(error.message); setSubmitting(false); return }
+    setBookingId(data.id)
     setStep(2)
     setSubmitting(false)
+  }
+
+  // Step 2 → mock payment: update payment_status to paid
+  const handleMockPayment = async () => {
+    if (!bookingId) return
+    setPaying(true)
+    // Simulate a 1.5s payment processing delay
+    await new Promise((r) => setTimeout(r, 1500))
+    const { error } = await supabase
+      .from("bookings")
+      .update({ payment_status: "paid" })
+      .eq("id", bookingId)
+    if (error) { setSubmitError(error.message); setPaying(false); return }
+    setStep(3)
+    setPaying(false)
   }
 
   return (
@@ -96,7 +124,7 @@ export default function Booking() {
 
         {/* Step indicators */}
         <div className="flex items-center gap-2 mb-10">
-          {["Your Details", "Confirmed"].map((label, i) => {
+          {STEPS.map((label, i) => {
             const s = i + 1
             const done = s < step
             const active = s === step
@@ -111,7 +139,7 @@ export default function Booking() {
                 <span className={`text-sm hidden sm:block ${active ? "font-semibold text-foreground" : "text-muted-foreground"}`}>
                   {label}
                 </span>
-                {s < 2 && <ChevronRight size={14} className="text-muted-foreground mx-1" />}
+                {s < STEPS.length && <ChevronRight size={14} className="text-muted-foreground mx-1" />}
               </div>
             )
           })}
@@ -119,6 +147,8 @@ export default function Booking() {
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           <div className="lg:col-span-2">
+
+            {/* Step 1 — Guest details */}
             {step === 1 && (
               <div className="bg-card border border-border rounded-3xl p-8">
                 <h2 className="font-display text-xl font-semibold text-foreground mb-6">Guest Information</h2>
@@ -154,34 +184,78 @@ export default function Booking() {
                 </div>
 
                 {submitError && (
-                  <p className="mt-4 text-sm text-red-600 bg-red-50 border border-red-200 rounded-xl px-4 py-3">
-                    {submitError}
-                  </p>
+                  <p className="mt-4 text-sm text-red-600 bg-red-50 border border-red-200 rounded-xl px-4 py-3">{submitError}</p>
                 )}
 
                 <button
-                  onClick={handleSubmit}
-                  disabled={!form.firstName || !form.phone || !form.checkIn || !form.checkOut || submitting}
+                  onClick={handleSubmitDetails}
+                  disabled={!form.firstName || !form.phone || !form.checkIn || !form.checkOut || nights === 0 || submitting}
                   className="mt-6 text-white font-semibold px-8 py-3.5 rounded-2xl inline-flex items-center gap-2 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                   style={{ backgroundColor: GOLD }}
                 >
                   {submitting ? <Loader2 size={15} className="animate-spin" /> : <ArrowRight size={15} />}
-                  {submitting ? "Sending…" : "Send Request"}
+                  {submitting ? "Saving…" : "Continue to Payment"}
                 </button>
               </div>
             )}
 
+            {/* Step 2 — Mock payment */}
             {step === 2 && (
+              <div className="bg-card border border-border rounded-3xl p-8">
+                <h2 className="font-display text-xl font-semibold text-foreground mb-2">Payment</h2>
+                <p className="text-muted-foreground text-sm mb-8">
+                  This is a demo checkout. No real payment is processed — M-Pesa and card integration coming in Phase 2.
+                </p>
+
+                <div className="border border-border rounded-2xl p-6 mb-6 space-y-4">
+                  <div className="flex items-center gap-3 mb-2">
+                    <CreditCard size={18} className="text-muted-foreground" />
+                    <span className="font-semibold text-foreground text-sm">Demo Card</span>
+                  </div>
+                  {[
+                    { label: "Card Number", value: "4242 4242 4242 4242" },
+                    { label: "Expiry", value: "12 / 26" },
+                    { label: "CVC", value: "•••" },
+                  ].map(({ label, value }) => (
+                    <div key={label}>
+                      <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide block mb-1.5">{label}</label>
+                      <div className="border border-border rounded-xl px-4 py-3 text-sm text-muted-foreground bg-secondary/40">{value}</div>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="flex items-center gap-2 text-xs text-muted-foreground mb-6">
+                  <Lock size={12} />
+                  <span>Payments are secured end-to-end. Real integration coming soon.</span>
+                </div>
+
+                {submitError && (
+                  <p className="mb-4 text-sm text-red-600 bg-red-50 border border-red-200 rounded-xl px-4 py-3">{submitError}</p>
+                )}
+
+                <button
+                  onClick={handleMockPayment}
+                  disabled={paying}
+                  className="w-full text-white font-semibold py-4 rounded-2xl inline-flex items-center justify-center gap-2 transition-colors disabled:opacity-60"
+                  style={{ backgroundColor: GOLD }}
+                >
+                  {paying ? <Loader2 size={15} className="animate-spin" /> : <Lock size={15} />}
+                  {paying ? "Processing…" : `Pay KSh ${total.toLocaleString()}`}
+                </button>
+              </div>
+            )}
+
+            {/* Step 3 — Confirmed */}
+            {step === 3 && (
               <div className="bg-card border border-border rounded-3xl p-12 text-center">
                 <div className="w-20 h-20 rounded-full bg-emerald-100 flex items-center justify-center mx-auto mb-6">
                   <CheckCircle size={38} className="text-emerald-600" />
                 </div>
-                <h2 className="font-display text-3xl font-semibold text-foreground mb-3">Request Sent!</h2>
+                <h2 className="font-display text-3xl font-semibold text-foreground mb-3">Booking Confirmed!</h2>
                 <p className="text-muted-foreground text-sm mb-9 max-w-md mx-auto leading-relaxed">
-                  Thanks, {form.firstName || "there"}. We've received your request for {name}
-                  {nights > 0 ? ` (${nights} night${nights > 1 ? "s" : ""})` : ""}. We'll confirm
-                  availability and payment details directly on WhatsApp or via the phone number you
-                  provided, usually within a few hours.
+                  Thanks, {form.firstName || "there"}. Your booking for {name}
+                  {nights > 0 ? ` (${nights} night${nights > 1 ? "s" : ""})` : ""} is confirmed.
+                  We'll be in touch on WhatsApp to share check-in details.
                 </p>
                 <div className="flex gap-3 justify-center flex-wrap">
                   <GoldBtn onClick={() => window.open("https://wa.me/254700000000", "_blank")}>
@@ -189,10 +263,10 @@ export default function Booking() {
                     Message Us on WhatsApp
                   </GoldBtn>
                   <button
-                    onClick={() => navigate("/")}
+                    onClick={() => navigate("/account")}
                     className="border border-border text-foreground px-6 py-3 rounded-full font-semibold hover:bg-secondary transition-colors"
                   >
-                    Return Home
+                    View My Bookings
                   </button>
                 </div>
               </div>

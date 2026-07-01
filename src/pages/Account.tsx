@@ -1,13 +1,37 @@
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { useNavigate } from "react-router-dom"
-import { LogOut, User, Calendar, Heart, Settings } from "lucide-react"
+import { LogOut, User, Calendar, Heart, Settings, MapPin, Loader2 } from "lucide-react"
 import { useAuth } from "../lib/auth"
+import { supabase } from "../lib/supabase"
+import type { DbBooking } from "../lib/supabase"
 import { GOLD } from "../data/properties"
+
+const STATUS_STYLES: Record<DbBooking["status"], string> = {
+  pending:   "bg-amber-50 text-amber-700 border-amber-200",
+  confirmed: "bg-emerald-50 text-emerald-700 border-emerald-200",
+  declined:  "bg-red-50 text-red-700 border-red-200",
+}
 
 export default function Account() {
   const { user, signOut } = useAuth()
   const navigate = useNavigate()
   const [activeTab, setActiveTab] = useState("profile")
+  const [bookings, setBookings] = useState<DbBooking[]>([])
+  const [bookingsLoading, setBookingsLoading] = useState(false)
+
+  useEffect(() => {
+    if (activeTab !== "bookings" || !user) return
+    setBookingsLoading(true)
+    supabase
+      .from("bookings")
+      .select("*")
+      .eq("user_id", user.id)
+      .order("created_at", { ascending: false })
+      .then(({ data }) => {
+        setBookings((data as DbBooking[]) ?? [])
+        setBookingsLoading(false)
+      })
+  }, [activeTab, user])
 
   if (!user) {
     return (
@@ -107,7 +131,35 @@ export default function Account() {
               {activeTab === "bookings" && (
                 <div>
                   <h2 className="font-display text-2xl font-semibold text-foreground mb-6">My Bookings</h2>
-                  <p className="text-muted-foreground">You don't have any bookings yet.</p>
+                  {bookingsLoading ? (
+                    <div className="flex items-center gap-2 text-muted-foreground">
+                      <Loader2 size={16} className="animate-spin" />
+                      <span className="text-sm">Loading…</span>
+                    </div>
+                  ) : bookings.length === 0 ? (
+                    <p className="text-muted-foreground text-sm">No bookings yet. <button onClick={() => navigate("/properties")} className="underline hover:text-foreground transition-colors">Browse villas</button></p>
+                  ) : (
+                    <div className="space-y-4">
+                      {bookings.map((b) => (
+                        <div key={b.id} className="border border-border rounded-2xl p-5">
+                          <div className="flex items-start justify-between gap-4 flex-wrap">
+                            <div>
+                              <p className="font-semibold text-foreground">{b.check_in_date} → {b.check_out_date}</p>
+                              <p className="flex items-center gap-1 text-muted-foreground text-xs mt-1">
+                                <MapPin size={10} /> {b.guest_name}
+                              </p>
+                            </div>
+                            <div className="text-right">
+                              <p className="font-bold text-foreground">KSh {b.total_price.toLocaleString()}</p>
+                              <span className={`inline-block mt-1 text-xs font-semibold px-2.5 py-1 rounded-full border capitalize ${STATUS_STYLES[b.status]}`}>
+                                {b.status}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               )}
 

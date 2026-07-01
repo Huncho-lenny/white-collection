@@ -1,38 +1,57 @@
 import { useState } from "react"
-import { Link, useLocation, useNavigate } from "react-router-dom"
-import { Eye, EyeOff, Loader2 } from "lucide-react"
+import { Link, useNavigate } from "react-router-dom"
+import { Eye, EyeOff, Loader2, Mail } from "lucide-react"
 import { useAuth } from "../lib/auth"
 import { GOLD, GOLD_DARK } from "../data/properties"
 
-export default function Login() {
+export default function SignUp() {
   const navigate = useNavigate()
-  const location = useLocation()
-  const { signIn, signInWithGoogle } = useAuth()
+  const { signUp, signInWithGoogle } = useAuth()
 
-  const from = (location.state as { from?: string })?.from ?? null
-
+  const [fullName, setFullName] = useState("")
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [showPw, setShowPw] = useState(false)
   const [loading, setLoading] = useState(false)
   const [googleLoading, setGoogleLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [checkEmail, setCheckEmail] = useState(false)
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    if (password.length < 6) { setError("Password must be at least 6 characters."); return }
     setLoading(true)
     setError(null)
-    const { error: err, role } = await signIn(email, password)
+    const { error: err, confirmedImmediately } = await signUp(email, password, fullName)
     if (err) { setError(err); setLoading(false); return }
-    if (role === "admin") navigate("/admin", { replace: true })
-    else navigate(from ?? "/account", { replace: true })
+    if (confirmedImmediately) navigate("/account", { replace: true })
+    else setCheckEmail(true)
+    setLoading(false)
   }
 
   const handleGoogle = async () => {
     setGoogleLoading(true)
     const { error: err } = await signInWithGoogle()
     if (err) { setError(err); setGoogleLoading(false) }
-    // on success Supabase redirects to /auth/callback — no further action needed
+  }
+
+  if (checkEmail) {
+    return (
+      <div className="min-h-screen flex items-center justify-center px-6" style={{ backgroundColor: "#0d0d0d" }}>
+        <div className="w-full max-w-sm text-center">
+          <div className="w-16 h-16 rounded-full bg-white/5 border border-white/10 flex items-center justify-center mx-auto mb-6">
+            <Mail size={28} style={{ color: GOLD }} />
+          </div>
+          <p className="font-display text-2xl font-bold text-white mb-3">Check your email</p>
+          <p className="text-white/50 text-sm leading-relaxed mb-8">
+            We sent a confirmation link to <span className="text-white font-medium">{email}</span>. Click it to activate your account.
+          </p>
+          <Link to="/login" className="text-sm font-semibold hover:text-white transition-colors" style={{ color: GOLD }}>
+            Back to Sign In
+          </Link>
+        </div>
+      </div>
+    )
   }
 
   return (
@@ -42,7 +61,7 @@ export default function Login() {
           <p className="font-display text-2xl font-bold text-white tracking-tight">
             WHITE<span style={{ color: GOLD }}>COLLECTION</span>
           </p>
-          <p className="text-white/40 text-sm mt-2">Sign in to your account</p>
+          <p className="text-white/40 text-sm mt-2">Create your account</p>
         </div>
 
         <div className="bg-white/5 border border-white/10 rounded-3xl p-8 space-y-5">
@@ -74,6 +93,17 @@ export default function Login() {
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
+              <label className="text-xs font-semibold uppercase tracking-widest text-white/50 block mb-2">Full Name</label>
+              <input
+                type="text"
+                value={fullName}
+                onChange={(e) => setFullName(e.target.value)}
+                placeholder="Jane Mwangi"
+                className="w-full bg-white/5 border border-white/10 rounded-2xl px-4 py-3 text-sm text-white outline-none focus:border-[#C9A55A] transition-colors placeholder:text-white/20"
+              />
+            </div>
+
+            <div>
               <label className="text-xs font-semibold uppercase tracking-widest text-white/50 block mb-2">Email</label>
               <input
                 type="email"
@@ -92,10 +122,10 @@ export default function Login() {
                 <input
                   type={showPw ? "text" : "password"}
                   required
-                  autoComplete="current-password"
+                  autoComplete="new-password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  placeholder="••••••••"
+                  placeholder="Min. 6 characters"
                   className="w-full bg-white/5 border border-white/10 rounded-2xl px-4 py-3 pr-11 text-sm text-white outline-none focus:border-[#C9A55A] transition-colors placeholder:text-white/20"
                 />
                 <button
@@ -120,14 +150,14 @@ export default function Login() {
               onMouseEnter={(e) => !loading && (e.currentTarget.style.backgroundColor = GOLD_DARK)}
               onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = GOLD)}
             >
-              {loading ? <Loader2 size={16} className="animate-spin" /> : "Sign In"}
+              {loading ? <Loader2 size={16} className="animate-spin" /> : "Create Account"}
             </button>
           </form>
 
           <p className="text-center text-white/40 text-sm">
-            No account?{" "}
-            <Link to="/signup" className="font-semibold hover:text-white transition-colors" style={{ color: GOLD }}>
-              Create one
+            Already have an account?{" "}
+            <Link to="/login" className="font-semibold hover:text-white transition-colors" style={{ color: GOLD }}>
+              Sign in
             </Link>
           </p>
         </div>
