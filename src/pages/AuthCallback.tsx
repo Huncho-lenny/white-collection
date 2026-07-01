@@ -1,18 +1,36 @@
 import { useEffect } from "react"
 import { useNavigate } from "react-router-dom"
 import { Loader2 } from "lucide-react"
-import { useAuth } from "../lib/auth"
+import { supabase } from "../lib/supabase"
 import { GOLD } from "../data/properties"
 
 export default function AuthCallback() {
-  const { profile, loading } = useAuth()
   const navigate = useNavigate()
 
   useEffect(() => {
-    if (loading) return
-    if (profile?.role === "admin") navigate("/admin", { replace: true })
-    else navigate("/account", { replace: true })
-  }, [loading, profile, navigate])
+    // Supabase puts the session tokens in the URL hash after OAuth redirect.
+    // getSession() will automatically exchange them and establish the session.
+    supabase.auth.getSession().then(async ({ data }) => {
+      if (!data.session) {
+        // No session — something went wrong, send back to login
+        navigate("/login", { replace: true })
+        return
+      }
+
+      // Fetch the user's role directly — don't rely on context timing
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("role")
+        .eq("id", data.session.user.id)
+        .single()
+
+      if (profile?.role === "admin") {
+        navigate("/admin", { replace: true })
+      } else {
+        navigate("/account", { replace: true })
+      }
+    })
+  }, [navigate])
 
   return (
     <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: "#0d0d0d" }}>
