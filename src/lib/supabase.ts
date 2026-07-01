@@ -1,22 +1,41 @@
 import { createClient } from "@supabase/supabase-js"
 
-const url = import.meta.env.VITE_SUPABASE_URL as string
-const key = import.meta.env.VITE_SUPABASE_ANON_KEY as string
+const rawUrl = import.meta.env.VITE_SUPABASE_URL as string | undefined
+const rawKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined
 
-if (!url || !key) {
-  console.error("[supabase] VITE_SUPABASE_URL or VITE_SUPABASE_ANON_KEY is missing. Check Vercel environment variables.")
+// Vite bakes import.meta.env values into the bundle at BUILD time.
+// If these are undefined here, the env vars were not set in Vercel dashboard
+// before the build ran. "undefined" (the string) passed to createClient
+// causes: Failed to execute 'fetch': Invalid value
+console.log("[supabase] URL present:", !!rawUrl, "| KEY present:", !!rawKey)
+
+if (!rawUrl || rawUrl === "undefined") {
+  console.error(
+    "[supabase] VITE_SUPABASE_URL is missing or invalid.\n" +
+    "Go to Vercel Dashboard → Project → Settings → Environment Variables\n" +
+    "Add VITE_SUPABASE_URL = https://tytscdansburphlhyhds.supabase.co\n" +
+    "Then trigger a redeploy — Vite bakes these at build time, not runtime."
+  )
 }
 
-// Ensure no trailing slash — a common misconfiguration that breaks _getSessionFromURL
-const cleanUrl = (url ?? "").replace(/\/$/, "")
+if (!rawKey || rawKey === "undefined") {
+  console.error(
+    "[supabase] VITE_SUPABASE_ANON_KEY is missing or invalid.\n" +
+    "Go to Vercel Dashboard → Project → Settings → Environment Variables\n" +
+    "Add VITE_SUPABASE_ANON_KEY and trigger a redeploy."
+  )
+}
 
-export const supabase = createClient(cleanUrl, key ?? "", {
+// Strip trailing slash — /rest/v1 or trailing / breaks _getSessionFromURL
+const cleanUrl = (rawUrl ?? "").replace(/\/$/, "").replace(/\/rest\/v1$/, "")
+
+export const supabase = createClient(cleanUrl, rawKey ?? "", {
   auth: {
     flowType: "pkce",
-    // detectSessionInUrl must be FALSE — if true, the client auto-exchanges
-    // the PKCE code on init and deletes the verifier from localStorage before
-    // AuthCallback can use it, causing "PKCE code verifier not found in storage".
-    // AuthCallback handles the exchange manually as the single source of truth.
+    // detectSessionInUrl MUST be false — if true, the Supabase client
+    // auto-exchanges the PKCE code on init and deletes the verifier from
+    // localStorage before AuthCallback can use it.
+    // AuthCallback is the single authority for the code exchange.
     detectSessionInUrl: false,
     persistSession: true,
   },

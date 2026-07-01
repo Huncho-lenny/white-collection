@@ -25,6 +25,7 @@ export default function AuthCallback() {
         // PKCE flow: exchange the one-time code for a session.
         // detectSessionInUrl is false on the client so nothing else has
         // touched the verifier in localStorage — this is the only call.
+        console.log("[AuthCallback] exchanging code, supabase URL:", import.meta.env.VITE_SUPABASE_URL)
         const { data, error } = await supabase.auth.exchangeCodeForSession(code)
         if (error || !data.session) {
           console.error("[AuthCallback] exchangeCodeForSession failed:", error?.message)
