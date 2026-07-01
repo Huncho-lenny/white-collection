@@ -8,7 +8,7 @@ Book directly with us. No middleman, no platform fees.
 
 ## Live Site
 
-> [Add your Vercel URL here once deployed.](https://the-white-collection.vercel.app/)
+> (https://the-white-collection.vercel.app/)
 
 ---
 
