@@ -8,6 +8,9 @@ export default function PropertyDetail() {
   const navigate = useNavigate()
   const p = PROPERTIES.find((x) => x.slug === slug) ?? PROPERTIES[0]
   const [activeImg, setActiveImg] = useState(0)
+  const [checkIn, setCheckIn] = useState("")
+  const [checkOut, setCheckOut] = useState("")
+  const [guests, setGuests] = useState(1)
 
   return (
     <div className="pt-24 pb-24 page-in">
@@ -116,26 +119,39 @@ export default function PropertyDetail() {
               </div>
               <div className="space-y-2 mb-4">
                 <div className="grid grid-cols-2 gap-2">
-                  {["Check In", "Check Out"].map((label) => (
+                  {(["Check In", "Check Out"] as const).map((label) => (
                     <div key={label} className="border border-border rounded-2xl p-3.5 focus-within:border-[#C9A55A] transition-colors">
                       <p className="text-xs text-muted-foreground font-semibold uppercase tracking-wide mb-1">{label}</p>
-                      <input type="date" className="text-sm font-medium text-foreground bg-transparent outline-none w-full" />
+                      <input
+                        type="date"
+                        className="text-sm font-medium text-foreground bg-transparent outline-none w-full"
+                        value={label === "Check In" ? checkIn : checkOut}
+                        onChange={(e) => label === "Check In" ? setCheckIn(e.target.value) : setCheckOut(e.target.value)}
+                      />
                     </div>
                   ))}
                 </div>
                 <div className="border border-border rounded-2xl p-3.5 focus-within:border-[#C9A55A] transition-colors">
                   <p className="text-xs text-muted-foreground font-semibold uppercase tracking-wide mb-1">Guests</p>
-                  <select className="text-sm font-medium text-foreground bg-transparent outline-none w-full">
+                  <select
+                    className="text-sm font-medium text-foreground bg-transparent outline-none w-full"
+                    value={guests}
+                    onChange={(e) => setGuests(Number(e.target.value))}
+                  >
                     {Array.from({ length: p.guests }, (_, i) => i + 1).map((n) => (
-                      <option key={n}>
-                        {n} Guest{n > 1 ? "s" : ""}
-                      </option>
+                      <option key={n}>{n} Guest{n > 1 ? "s" : ""}</option>
                     ))}
                   </select>
                 </div>
               </div>
               <button
-                onClick={() => navigate(`/booking?property=${p.slug}`)}
+                onClick={() => {
+                  const params = new URLSearchParams({ property: p.slug })
+                  if (checkIn) params.set("checkIn", checkIn)
+                  if (checkOut) params.set("checkOut", checkOut)
+                  if (guests > 1) params.set("guests", String(guests))
+                  navigate(`/booking?${params.toString()}`)
+                }}
                 className="w-full text-white font-semibold py-4 rounded-2xl transition-colors mb-2"
                 style={{ backgroundColor: GOLD }}
                 onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = GOLD_DARK)}

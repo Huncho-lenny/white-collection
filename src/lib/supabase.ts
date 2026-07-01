@@ -66,6 +66,7 @@ export interface DbBooking {
   id: string
   created_at: string
   property_id: string
+  user_id: string | null
   guest_name: string
   guest_email: string
   guest_phone: string
@@ -74,5 +75,6 @@ export interface DbBooking {
   number_of_guests: number
   special_requests: string | null
   status: "pending" | "confirmed" | "declined"
+  payment_status: "unpaid" | "paid" | null
   total_price: number
 }

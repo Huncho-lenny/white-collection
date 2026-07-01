@@ -1,5 +1,5 @@
 import { useState } from "react"
-import { Link, useLocation, useNavigate } from "react-router-dom"
+import { Link, useLocation, useNavigate, useParams } from "react-router-dom"
 import { Menu, X } from "lucide-react"
 import { GoldBtn } from "./ui-elements"
 import { GOLD } from "../data/properties"
@@ -15,8 +15,11 @@ export function Nav({ scrolled }: { scrolled: boolean }) {
   const [mobileOpen, setMobileOpen] = useState(false)
   const location = useLocation()
   const navigate = useNavigate()
+  const { slug } = useParams<{ slug?: string }>()
   const { user } = useAuth()
   const transparent = location.pathname === "/" && !scrolled
+  // If on a property detail page, carry the slug to the booking form
+  const bookingHref = slug ? `/booking?property=${slug}` : "/booking"
 
   return (
     <nav
@@ -71,7 +74,7 @@ export function Nav({ scrolled }: { scrolled: boolean }) {
               Login
             </Link>
           )}
-          <GoldBtn small onClick={() => navigate("/booking")}>
+          <GoldBtn small onClick={() => navigate(bookingHref)}>
             Book Now
           </GoldBtn>
         </div>
@@ -116,7 +119,7 @@ export function Nav({ scrolled }: { scrolled: boolean }) {
           <GoldBtn
             small
             onClick={() => {
-              navigate("/booking")
+              navigate(bookingHref)
               setMobileOpen(false)
             }}
           >

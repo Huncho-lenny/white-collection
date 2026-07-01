@@ -31,9 +31,9 @@ export default function Booking() {
     lastName: "",
     email: "",
     phone: "",
-    checkIn: "",
-    checkOut: "",
-    guests: 1,
+    checkIn: searchParams.get("checkIn") ?? "",
+    checkOut: searchParams.get("checkOut") ?? "",
+    guests: Number(searchParams.get("guests") ?? 1),
     notes: "",
   })
 
