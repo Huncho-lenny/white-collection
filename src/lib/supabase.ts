@@ -12,9 +12,12 @@ const cleanUrl = (url ?? "").replace(/\/$/, "")
 
 export const supabase = createClient(cleanUrl, key ?? "", {
   auth: {
-    // Use PKCE flow (Supabase default since 2023) — required for OAuth in SPAs
     flowType: "pkce",
-    detectSessionInUrl: true,
+    // detectSessionInUrl must be FALSE — if true, the client auto-exchanges
+    // the PKCE code on init and deletes the verifier from localStorage before
+    // AuthCallback can use it, causing "PKCE code verifier not found in storage".
+    // AuthCallback handles the exchange manually as the single source of truth.
+    detectSessionInUrl: false,
     persistSession: true,
   },
 })

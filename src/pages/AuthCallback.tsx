@@ -10,60 +10,47 @@ export default function AuthCallback() {
   useEffect(() => {
     const handle = async () => {
       const params = new URLSearchParams(window.location.search)
-      const hashParams = new URLSearchParams(window.location.hash.replace("#", "?"))
-
-      const code = params.get("code")
-      const accessToken = hashParams.get("access_token")
       const errorParam = params.get("error")
       const errorDescription = params.get("error_description")
+      const code = params.get("code")
 
-      console.log("[AuthCallback] URL search:", window.location.search)
-      console.log("[AuthCallback] URL hash:", window.location.hash)
-      console.log("[AuthCallback] code:", code)
-      console.log("[AuthCallback] access_token in hash:", accessToken)
-
-      // Surface any OAuth-level errors from the provider
+      // OAuth provider returned an error (e.g. user cancelled)
       if (errorParam) {
         console.error("[AuthCallback] OAuth error:", errorParam, errorDescription)
         navigate("/login", { replace: true })
         return
       }
 
-      let session = null
-
       if (code) {
-        // PKCE flow — exchange the code for a session
-        console.log("[AuthCallback] PKCE flow detected, exchanging code…")
+        // PKCE flow: exchange the one-time code for a session.
+        // detectSessionInUrl is false on the client so nothing else has
+        // touched the verifier in localStorage — this is the only call.
         const { data, error } = await supabase.auth.exchangeCodeForSession(code)
-        console.log("[AuthCallback] exchangeCodeForSession result:", { data, error })
         if (error || !data.session) {
-          console.error("[AuthCallback] Code exchange failed:", error?.message)
+          console.error("[AuthCallback] exchangeCodeForSession failed:", error?.message)
           navigate("/login", { replace: true })
           return
         }
-        session = data.session
-      } else {
-        // Implicit flow fallback — session may already be in storage
-        console.log("[AuthCallback] No code param, trying getSession()…")
-        const { data, error } = await supabase.auth.getSession()
-        console.log("[AuthCallback] getSession result:", { data, error })
-        if (error || !data.session) {
-          console.error("[AuthCallback] No session found:", error?.message)
-          navigate("/login", { replace: true })
-          return
-        }
-        session = data.session
+        await routeByRole(data.session.user.id)
+        return
       }
 
-      // Fetch role and route accordingly
-      const { data: profile, error: profileError } = await supabase
+      // Implicit flow fallback (no ?code= in URL)
+      const { data, error } = await supabase.auth.getSession()
+      if (error || !data.session) {
+        console.error("[AuthCallback] No session found:", error?.message)
+        navigate("/login", { replace: true })
+        return
+      }
+      await routeByRole(data.session.user.id)
+    }
+
+    const routeByRole = async (userId: string) => {
+      const { data: profile } = await supabase
         .from("profiles")
         .select("role")
-        .eq("id", session.user.id)
+        .eq("id", userId)
         .single()
-
-      console.log("[AuthCallback] profile fetch:", { profile, profileError })
-
       if (profile?.role === "admin") {
         navigate("/admin", { replace: true })
       } else {
