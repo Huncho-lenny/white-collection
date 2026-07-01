@@ -8,28 +8,70 @@ export default function AuthCallback() {
   const navigate = useNavigate()
 
   useEffect(() => {
-    // Supabase puts the session tokens in the URL hash after OAuth redirect.
-    // getSession() will automatically exchange them and establish the session.
-    supabase.auth.getSession().then(async ({ data }) => {
-      if (!data.session) {
-        // No session — something went wrong, send back to login
+    const handle = async () => {
+      const params = new URLSearchParams(window.location.search)
+      const hashParams = new URLSearchParams(window.location.hash.replace("#", "?"))
+
+      const code = params.get("code")
+      const accessToken = hashParams.get("access_token")
+      const errorParam = params.get("error")
+      const errorDescription = params.get("error_description")
+
+      console.log("[AuthCallback] URL search:", window.location.search)
+      console.log("[AuthCallback] URL hash:", window.location.hash)
+      console.log("[AuthCallback] code:", code)
+      console.log("[AuthCallback] access_token in hash:", accessToken)
+
+      // Surface any OAuth-level errors from the provider
+      if (errorParam) {
+        console.error("[AuthCallback] OAuth error:", errorParam, errorDescription)
         navigate("/login", { replace: true })
         return
       }
 
-      // Fetch the user's role directly — don't rely on context timing
-      const { data: profile } = await supabase
+      let session = null
+
+      if (code) {
+        // PKCE flow — exchange the code for a session
+        console.log("[AuthCallback] PKCE flow detected, exchanging code…")
+        const { data, error } = await supabase.auth.exchangeCodeForSession(code)
+        console.log("[AuthCallback] exchangeCodeForSession result:", { data, error })
+        if (error || !data.session) {
+          console.error("[AuthCallback] Code exchange failed:", error?.message)
+          navigate("/login", { replace: true })
+          return
+        }
+        session = data.session
+      } else {
+        // Implicit flow fallback — session may already be in storage
+        console.log("[AuthCallback] No code param, trying getSession()…")
+        const { data, error } = await supabase.auth.getSession()
+        console.log("[AuthCallback] getSession result:", { data, error })
+        if (error || !data.session) {
+          console.error("[AuthCallback] No session found:", error?.message)
+          navigate("/login", { replace: true })
+          return
+        }
+        session = data.session
+      }
+
+      // Fetch role and route accordingly
+      const { data: profile, error: profileError } = await supabase
         .from("profiles")
         .select("role")
-        .eq("id", data.session.user.id)
+        .eq("id", session.user.id)
         .single()
+
+      console.log("[AuthCallback] profile fetch:", { profile, profileError })
 
       if (profile?.role === "admin") {
         navigate("/admin", { replace: true })
       } else {
         navigate("/account", { replace: true })
       }
-    })
+    }
+
+    handle()
   }, [navigate])
 
   return (

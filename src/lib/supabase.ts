@@ -4,10 +4,20 @@ const url = import.meta.env.VITE_SUPABASE_URL as string
 const key = import.meta.env.VITE_SUPABASE_ANON_KEY as string
 
 if (!url || !key) {
-  console.warn("Supabase env vars missing — add VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY to .env")
+  console.error("[supabase] VITE_SUPABASE_URL or VITE_SUPABASE_ANON_KEY is missing. Check Vercel environment variables.")
 }
 
-export const supabase = createClient(url ?? "", key ?? "")
+// Ensure no trailing slash — a common misconfiguration that breaks _getSessionFromURL
+const cleanUrl = (url ?? "").replace(/\/$/, "")
+
+export const supabase = createClient(cleanUrl, key ?? "", {
+  auth: {
+    // Use PKCE flow (Supabase default since 2023) — required for OAuth in SPAs
+    flowType: "pkce",
+    detectSessionInUrl: true,
+    persistSession: true,
+  },
+})
 
 // ── Types that mirror your DB schema ─────────────────────────────────────────
 
